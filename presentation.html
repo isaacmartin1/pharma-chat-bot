@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PharmaAsset AI — Engineering Walkthrough</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1B2A4A;--purple:#8C4799;--purpleg:#B06BBD;--purplebg:#F3EAF8;
+  --bg:#F8F9FB;--slate:#4A5568;--green:#2F855A;--yellow:#B7791F;--red:#C53030;
+  --g100:#F7FAFC;--g200:#EDF2F7;--g400:#A0AEC0;--g600:#718096;--white:#fff;
+}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0a0f1a;height:100vh;overflow:hidden;color:var(--navy)}
+#prog{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,var(--purple),var(--purpleg));transition:width .35s ease;z-index:999}
+.deck{width:100vw;height:100vh;position:relative}
+.slide{position:absolute;inset:0;display:none;flex-direction:column;animation:fi .25s ease}
+.slide.on{display:flex}
+@keyframes fi{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* NAV */
+#nav{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:10px;background:rgba(5,10,20,.88);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.1);border-radius:100px;padding:9px 18px;z-index:998;box-shadow:0 8px 32px rgba(0,0,0,.5)}
+#nav button{background:none;border:none;color:rgba(255,255,255,.75);cursor:pointer;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;transition:background .15s}
+#nav button:hover:not(:disabled){background:rgba(255,255,255,.15);color:#fff}
+#nav button:disabled{opacity:.25;cursor:default}
+#nav .ctr{color:rgba(255,255,255,.45);font-size:12px;font-weight:500;min-width:44px;text-align:center}
+
+/* LAYOUTS */
+.l-dark{background:linear-gradient(135deg,#0d1525 0%,#1B2A4A 55%,#2a1540 100%);justify-content:center;align-items:center;text-align:center;color:#fff;padding:60px}
+.l-std{background:var(--bg)}
+.l-split{flex-direction:row}
+.sh{background:var(--navy);color:#fff;padding:24px 44px;flex-shrink:0}
+.sh h2{font-size:24px;font-weight:700;letter-spacing:-.3px}
+.sh .sub{font-size:15px;opacity:.55;margin-top:3px}
+.sb{flex:1;padding:28px 44px;overflow:hidden}
+.sl{width:37%;background:var(--navy);color:#fff;display:flex;flex-direction:column;justify-content:center;padding:44px 36px}
+.sr{flex:1;background:#fff;display:flex;flex-direction:column;justify-content:center;padding:44px 36px;overflow-y:auto}
+
+/* TYPE */
+.txl{font-size:52px;font-weight:800;line-height:1.05;letter-spacing:-1.5px;margin-bottom:14px}
+.tmd{font-size:28px;font-weight:700;letter-spacing:-.4px}
+.lbl{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;opacity:.45}
+.tag{display:inline-block;background:var(--purplebg);color:var(--purple);font-size:13px;font-weight:600;padding:3px 10px;border-radius:100px;margin:2px}
+.tag.n{background:rgba(27,42,74,.1);color:var(--navy)}
+.pill{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#fff;font-size:14px;font-weight:500;padding:5px 13px;border-radius:100px;margin:3px}
+
+/* CARD */
+.card{background:#fff;border-radius:14px;padding:18px 22px;border:1px solid var(--g200);box-shadow:0 1px 4px rgba(0,0,0,.05)}
+
+/* PROBLEM CARD */
+.pc{display:flex;gap:14px;align-items:flex-start;padding:16px;background:#fff;border-radius:11px;border:1px solid var(--g200);margin-bottom:10px}
+.pi{width:38px;height:38px;border-radius:9px;background:var(--purplebg);color:var(--purple);display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+
+/* FLOW */
+.flow{display:flex;align-items:stretch}
+.fs{flex:1;background:#fff;border:1px solid var(--g200);padding:14px 10px;text-align:center;position:relative}
+.fs:first-child{border-radius:11px 0 0 11px}
+.fs:last-child{border-radius:0 11px 11px 0}
+.fs:not(:last-child)::after{content:'→';position:absolute;right:-10px;top:50%;transform:translateY(-50%);color:var(--purple);font-size:14px;font-weight:700;z-index:2}
+.fs.hi{background:var(--navy);color:#fff;border-color:var(--navy)}
+.sn{width:22px;height:22px;border-radius:50%;background:var(--purplebg);color:var(--purple);font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;margin:0 auto 7px}
+.fs.hi .sn{background:rgba(255,255,255,.2);color:#fff}
+
+/* ARCH BOX */
+.ab{background:var(--g100);border:1px solid var(--g200);border-radius:7px;padding:8px 11px;font-size:14px;font-weight:500;color:var(--navy);margin-bottom:5px}
+.ab.pu{background:var(--purplebg);border-color:rgba(140,71,153,.25);color:var(--purple)}
+.ab.dk{background:var(--navy);border-color:var(--navy);color:#fff}
+
+/* COMPLIANCE */
+.cl{display:flex;flex-direction:column;gap:7px}
+.ci{display:flex;align-items:flex-start;gap:10px;padding:9px 12px;background:var(--g100);border-radius:7px;border-left:3px solid var(--g400)}
+.ci.g{border-color:#2F855A}
+.ci.y{border-color:#B7791F}
+.ci.r{border-color:#C53030}
+.cn{font-size:14px;font-weight:600;color:var(--navy);min-width:140px}
+.cm{font-size:13px;color:var(--slate)}
+
+/* GRID */
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:15px}
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:15px}
+
+/* CODE */
+.code{background:#141923;color:#a9b7d0;border-radius:9px;padding:13px 16px;font-family:'SF Mono',monospace;font-size:13px;line-height:1.7}
+.ck{color:#82aaff}.cs{color:#c3e88d}.cc{color:#546e7a}.cp{color:#c792ea}
+
+/* ERD */
+.erd{background:#fff;border:2px solid var(--g200);border-radius:9px;overflow:hidden;font-size:13px;min-width:130px}
+.erh{background:var(--navy);color:#fff;padding:6px 11px;font-weight:700;font-size:12px}
+.erh.pu{background:var(--purple)}
+.erh.gr{background:#2F855A}
+.erh.am{background:#B7791F}
+.erf{padding:3px 11px;border-bottom:1px solid var(--g100);color:var(--slate);display:flex;align-items:center;gap:5px}
+.erf:last-child{border-bottom:none}
+.pk{color:#B7791F;font-size:11px;font-weight:700}
+.fk{color:var(--purple);font-size:11px;font-weight:700}
+
+/* RULE BAR */
+.rb{display:flex;align-items:center;gap:9px;margin-bottom:6px}
+.rl{font-size:13px;color:var(--slate);min-width:185px}
+.rt{flex:1;height:7px;background:var(--g200);border-radius:100px;overflow:hidden}
+.rf{height:100%;background:var(--purple);border-radius:100px}
+.rc{font-size:13px;font-weight:700;color:var(--navy);min-width:26px;text-align:right}
+
+/* STAT */
+.stat{background:#fff;border:1px solid var(--g200);border-radius:13px;padding:20px;text-align:center}
+.stn{font-size:38px;font-weight:800;color:var(--purple);line-height:1;margin-bottom:6px}
+.stl{font-size:13px;color:var(--slate);font-weight:500}
+
+/* SSE events */
+.ev{display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--g100);border-radius:7px;border-left:3px solid var(--g400);margin-bottom:6px}
+.ev.t{border-color:var(--purple)}
+.ev.a{border-color:#2F855A}
+.ev.c{border-color:#B7791F}
+.ev.d{border-color:var(--navy)}
+.ev.e{border-color:#C53030}
+.en{font-family:monospace;font-size:13px;font-weight:600;color:var(--navy);min-width:160px}
+.ed{font-size:13px;color:var(--slate)}
+
+/* GLOW ORBS */
+.orb{position:absolute;border-radius:50%;pointer-events:none}
+
+/* Presentation readability — overrides inline small text in cards and panels */
+.card p,.card ul,.card li{font-size:14px!important;line-height:1.75!important}
+.sl p,.sr p{font-size:14px!important;line-height:1.75!important}
+</style>
+</head>
+<body>
+<div id="prog"></div>
+<div class="deck" id="deck">
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 1 — TITLE
+══════════════════════════════════════════════════════ -->
+<div class="slide l-dark on">
+  <div class="orb" style="width:500px;height:500px;background:radial-gradient(circle,rgba(140,71,153,.18) 0%,transparent 70%);top:-180px;right:-150px"></div>
+  <div class="orb" style="width:350px;height:350px;background:radial-gradient(circle,rgba(140,71,153,.12) 0%,transparent 70%);bottom:-100px;left:-80px"></div>
+  <div style="position:relative;max-width:760px">
+    <div class="lbl" style="color:rgba(255,255,255,.35);margin-bottom:14px">SOLSTICE ONSITE · FULL STACK ENGINEER EXERCISE</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:14px;margin-bottom:18px">
+      <div style="width:52px;height:52px;background:var(--purple);border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:24px;font-weight:800;color:#fff">P</div>
+      <h1 class="txl" style="color:#fff;margin:0">PharmaAsset AI</h1>
+    </div>
+    <p style="font-size:20px;color:rgba(255,255,255,.55);margin-bottom:32px;line-height:1.55">
+      FDA-Compliant Marketing Content Generation<br>
+      <span style="color:var(--purpleg);font-weight:600">for FRUZAQLA (fruquintinib)</span>
+    </p>
+    <div style="margin-bottom:40px">
+      <span class="pill">⚡ FastAPI + Next.js 14</span>
+      <span class="pill">🤖 Claude AI (Anthropic)</span>
+      <span class="pill">🔒 238 FDA Rules</span>
+      <span class="pill">📦 Full Export Pipeline</span>
+    </div>
+    <div style="color:rgba(255,255,255,.3);font-size:13px">Isaac Martin · Full Stack Engineer</div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 2 — THE PROBLEM
+══════════════════════════════════════════════════════ -->
+<div class="slide l-split">
+  <div class="sl">
+    <div class="lbl" style="color:rgba(255,255,255,.35);margin-bottom:10px">THE CONTEXT</div>
+    <div class="tmd" style="color:#fff;margin-bottom:14px">Pharma marketing is uniquely constrained</div>
+    <p style="color:rgba(255,255,255,.5);font-size:14px;line-height:1.7;margin-bottom:24px">Every piece of content must be legally defensible before it reaches a single HCP or patient. The approval process is slow, expensive, and error-prone.</p>
+    <div style="background:rgba(255,255,255,.07);border-radius:10px;padding:16px">
+      <div style="font-size:36px;font-weight:800;color:#fff;line-height:1">5–10+</div>
+      <div style="color:rgba(255,255,255,.45);font-size:13px;margin-top:3px">revision cycles per asset</div>
+    </div>
+    <div style="background:rgba(255,255,255,.07);border-radius:10px;padding:16px;margin-top:10px">
+      <div style="font-size:36px;font-weight:800;color:#fff;line-height:1">$3–7k</div>
+      <div style="color:rgba(255,255,255,.45);font-size:13px;margin-top:3px">avg. MLR review cost per asset</div>
+    </div>
+  </div>
+  <div class="sr">
+    <div class="pc">
+      <div class="pi">🔒</div>
+      <div><div style="font-weight:700;margin-bottom:3px;font-size:14px">Claims must be pre-approved</div>
+      <div style="font-size:12px;color:var(--slate)">FDA 21 CFR 202 requires all promotional statements to be previously cleared or sourced from clinical literature. No paraphrasing, no new claims.</div></div>
+    </div>
+    <div class="pc">
+      <div class="pi">🖼️</div>
+      <div><div style="font-weight:700;margin-bottom:3px;font-size:14px">No new visual assets</div>
+      <div style="font-size:12px;color:var(--slate)">All images, icons, and graphs must come from an approved brand library. No stock photos, no AI-generated imagery.</div></div>
+    </div>
+    <div class="pc">
+      <div class="pi">✅</div>
+      <div><div style="font-weight:700;margin-bottom:3px;font-size:14px">Triple compliance validation</div>
+      <div style="font-size:12px;color:var(--slate)">Every asset must pass fact-checking against clinical evidence, FDA regulatory rules, and channel compatibility specs before it can be distributed.</div></div>
+    </div>
+    <div class="pc" style="margin-bottom:0">
+      <div class="pi">👤</div>
+      <div><div style="font-weight:700;margin-bottom:3px;font-size:14px">Non-technical users</div>
+      <div style="font-size:12px;color:var(--slate)">Marketing managers need to create compliant content quickly — without knowing FDA regulations themselves.</div></div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 3 — SOLUTION OVERVIEW
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>The Solution</h2><div class="sub">Guided, gated, automated — compliant by design</div></div>
+  <div class="sb">
+    <div class="g3" style="height:100%">
+      <div class="card" style="border-top:4px solid var(--purple)">
+        <div style="font-size:28px;margin-bottom:10px">💬</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:7px;color:var(--navy)">Conversational</div>
+        <p style="font-size:12px;color:var(--slate);line-height:1.65;margin-bottom:12px">Chat interface guides non-technical marketers through structured creation. Onboarding modal captures content type, audience, goal, and tone upfront — before the first message is sent.</p>
+        <span class="tag">Content type landing page</span>
+        <span class="tag">Onboarding modal</span>
+        <span class="tag">Clarifying questions</span>
+      </div>
+      <div class="card" style="border-top:4px solid #C53030">
+        <div style="font-size:28px;margin-bottom:10px">🛡️</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:7px;color:var(--navy)">Gated Approval</div>
+        <p style="font-size:12px;color:var(--slate);line-height:1.65;margin-bottom:12px">AI proposes claims from the approved library with source citations. Users must explicitly check-approve each claim before any HTML is generated. This is the compliance firewall — no hallucinations possible.</p>
+        <span class="tag n">CLAIMS_PROPOSED signal</span>
+        <span class="tag n">Checkbox approval UI</span>
+        <span class="tag n">Source citations shown</span>
+      </div>
+      <div class="card" style="border-top:4px solid #2F855A">
+        <div style="font-size:28px;margin-bottom:10px">⚡</div>
+        <div style="font-weight:700;font-size:15px;margin-bottom:7px;color:var(--navy)">Automated Compliance</div>
+        <p style="font-size:12px;color:var(--slate);line-height:1.65;margin-bottom:12px">238 FDA rules checked on every asset. Auto-fix loop retries red failures up to 2×. Export is blocked until all red failures are resolved — not just warned about.</p>
+        <span class="tag">238 FDA rules</span>
+        <span class="tag">Auto-fix loop ×2</span>
+        <span class="tag">Export gate on red</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 4 — USER JOURNEY
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>User Journey Map</h2><div class="sub">From intent to exportable HTML in 6 steps — human in the loop at every gate</div></div>
+  <div class="sb" style="display:flex;flex-direction:column;justify-content:center;gap:20px">
+    <div class="flow">
+      <div class="fs"><div class="sn">1</div><div style="font-size:14px;font-weight:700;margin-bottom:3px">Select Type</div><div style="font-size:12px;color:var(--slate)">Email / Banner /<br>Social / Slide</div></div>
+      <div class="fs"><div class="sn">2</div><div style="font-size:14px;font-weight:700;margin-bottom:3px">Set Parameters</div><div style="font-size:12px;color:var(--slate)">Audience, goal,<br>tone via modal</div></div>
+      <div class="fs"><div class="sn">3</div><div style="font-size:14px;font-weight:700;margin-bottom:3px">✓ Approve Claims</div><div style="font-size:12px;color:var(--slate)">Check &amp; sign-off<br>each sourced claim</div></div>
+      <div class="fs"><div class="sn">4</div><div style="font-size:14px;font-weight:700;margin-bottom:3px">AI Generates</div><div style="font-size:12px;color:var(--slate)">HTML + inline CSS<br>+ ISI footer</div></div>
+      <div class="fs"><div class="sn">5</div><div style="font-size:14px;font-weight:700;margin-bottom:3px">Compliance Run</div><div style="font-size:12px;color:var(--slate)">238 rules · auto-fix<br>red failures ×2</div></div>
+      <div class="fs"><div class="sn">6</div><div style="font-size:14px;font-weight:700;margin-bottom:3px">Edit &amp; Export</div><div style="font-size:12px;color:var(--slate)">ZIP: HTML +<br>manifest + report</div></div>
+    </div>
+    <div class="g2">
+      <div class="card">
+        <div style="font-weight:700;font-size:13px;margin-bottom:9px;color:var(--navy)">🤖 Where AI drives</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.95;padding-left:15px">
+          <li>Selecting relevant claims from the approved library</li>
+          <li>Generating structured HTML with brand guidelines</li>
+          <li>Auto-fixing red compliance failures</li>
+          <li>Natural language edits ("move efficacy above safety")</li>
+        </ul>
+      </div>
+      <div class="card">
+        <div style="font-weight:700;font-size:13px;margin-bottom:9px;color:var(--navy)">👤 Where humans control</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.95;padding-left:15px">
+          <li>Explicit claim-by-claim approval — required gate before generation</li>
+          <li>Inline text editing via direct contentEditable mode</li>
+          <li>Running manual compliance re-checks</li>
+          <li>Export decision — blocked on red, user must resolve</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 5 — CLAIMS APPROVAL GATE
+══════════════════════════════════════════════════════ -->
+<div class="slide l-split">
+  <div class="sl">
+    <div class="lbl" style="color:rgba(255,255,255,.35);margin-bottom:10px">KEY DESIGN DECISION #1</div>
+    <div class="tmd" style="color:#fff;margin-bottom:14px">The Claims Approval Gate</div>
+    <p style="color:rgba(255,255,255,.5);font-size:13px;line-height:1.7;margin-bottom:18px">AI proposes claims. Human approves. Generation only happens after explicit sign-off. This eliminates hallucinated efficacy data at the source.</p>
+    <div style="background:rgba(255,255,255,.06);border-radius:9px;padding:13px 15px;font-size:12px;margin-bottom:10px">
+      <div style="color:rgba(255,255,255,.4);margin-bottom:7px;font-size:11px;font-weight:600">WITHOUT THIS GATE:</div>
+      <div style="color:#fc8181;margin-bottom:5px">✗ AI invents efficacy numbers</div>
+      <div style="color:#fc8181;margin-bottom:5px">✗ Hallucinated trial citations</div>
+      <div style="color:#fc8181">✗ 21 CFR 202 violation risk</div>
+    </div>
+    <div style="background:rgba(140,71,153,.15);border:1px solid rgba(140,71,153,.3);border-radius:9px;padding:13px 15px;font-size:12px">
+      <div style="color:var(--purpleg);margin-bottom:7px;font-size:11px;font-weight:600">WITH THE GATE:</div>
+      <div style="color:rgba(255,255,255,.7);margin-bottom:5px">✓ Only library claims used</div>
+      <div style="color:rgba(255,255,255,.7);margin-bottom:5px">✓ Every claim has source citation</div>
+      <div style="color:rgba(255,255,255,.7)">✓ Human approves before any generation</div>
+    </div>
+  </div>
+  <div class="sr">
+    <div class="lbl" style="margin-bottom:8px">Backend emits this signal in the SSE stream:</div>
+    <div class="code" style="margin-bottom:14px">
+<span class="cc">// streamed token-by-token to the frontend</span>
+<span class="ck">CLAIMS_PROPOSED</span>[hcp_outreach]:
+<span class="cs">1. "FRUZAQLA improved median PFS by 6.1 months
+   vs. placebo" — sourced from: FRESCO-2 Phase 3
+   Trial, NEJM 2023</span>
+
+<span class="cs">2. "Statistically significant OS benefit (HR 0.79,
+   p=0.0008)" — sourced from: FDA Label §14.1</span>
+
+Please confirm these claims to proceed.
+    </div>
+    <div class="lbl" style="margin-bottom:8px">Frontend detects signal → renders ClaimsApprovalCard:</div>
+    <div style="background:#F9F3FD;border:1px solid rgba(140,71,153,.2);border-radius:11px;padding:14px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:var(--purple);margin-bottom:9px">Proposed Claims</div>
+      <div style="display:flex;align-items:flex-start;gap:9px;padding:9px;background:#EFE4F8;border-radius:7px;border:1px solid rgba(140,71,153,.2);margin-bottom:6px">
+        <input type="checkbox" checked onclick="return false" style="margin-top:2px;accent-color:var(--purple)">
+        <div style="font-size:12px;color:#333">"FRUZAQLA improved median PFS by 6.1 months vs. placebo"<br><span style="color:var(--slate);font-size:11px">Sourced from: FRESCO-2 Phase 3 Trial</span></div>
+      </div>
+      <div style="display:flex;align-items:flex-start;gap:9px;padding:9px;background:#EFE4F8;border-radius:7px;border:1px solid rgba(140,71,153,.2);margin-bottom:10px">
+        <input type="checkbox" checked onclick="return false" style="margin-top:2px;accent-color:var(--purple)">
+        <div style="font-size:12px;color:#333">"OS benefit: HR 0.79, statistically significant"<br><span style="color:var(--slate);font-size:11px">Sourced from: FDA Label §14.1</span></div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="flex:1;background:var(--purple);color:#fff;border-radius:7px;padding:8px;text-align:center;font-size:12px;font-weight:600">✓ Approve &amp; Generate</div>
+        <div style="color:var(--purple);font-size:12px;font-weight:500;text-decoration:underline;cursor:pointer">Modify</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 6 — EDITING & VERSIONS
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>Iterative Editing</h2><div class="sub">Two editing modes · version history · auto compliance re-check on every change</div></div>
+  <div class="sb" style="display:flex;flex-direction:column;gap:14px;justify-content:center">
+    <div class="g2">
+      <div class="card" style="border-left:4px solid var(--purple)">
+        <div style="font-weight:700;font-size:14px;margin-bottom:7px;color:var(--navy)">💬 Natural Language Editing</div>
+        <p style="font-size:12px;color:var(--slate);margin-bottom:10px">Once an asset exists, the chat enters edit mode. User types a change request; backend sends current HTML + request to Claude, which returns the full updated HTML. Previous HTML is snapshotted to <code style="font-size:11px;background:var(--g100);padding:1px 4px;border-radius:3px">asset_versions</code> first.</p>
+        <div class="code" style="font-size:11px;padding:9px 12px">
+<span class="ck">User:</span> <span class="cs">"Move efficacy data above safety section"</span>
+<span class="ck">Claude:</span> returns complete updated HTML
+        </div>
+      </div>
+      <div class="card" style="border-left:4px solid var(--navy)">
+        <div style="font-weight:700;font-size:14px;margin-bottom:7px;color:var(--navy)">✏️ Direct Inline Editing</div>
+        <p style="font-size:12px;color:var(--slate);margin-bottom:10px">Edit Mode toggle switches the preview from a static iframe to a <code style="font-size:11px;background:var(--g100);padding:1px 4px;border-radius:3px">contentEditable</code> overlay. Changes are saved via <code style="font-size:11px;background:var(--g100);padding:1px 4px;border-radius:3px">PUT /assets/{id}</code>. Version is snapshotted before every save.</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="tag">Preview ↔ Edit toggle</span>
+          <span class="tag">contentEditable overlay</span>
+          <span class="tag">PUT /assets/{id}</span>
+        </div>
+      </div>
+    </div>
+    <div class="card" style="background:var(--g100)">
+      <div style="font-weight:700;font-size:13px;margin-bottom:10px;color:var(--navy)">🗂️ Version History &amp; Undo</div>
+      <div style="display:flex;gap:0;align-items:center;margin-bottom:10px">
+        <div style="background:var(--navy);color:#fff;border-radius:7px 0 0 7px;padding:8px 14px;font-size:11px;font-weight:600;white-space:nowrap">v4 · current</div>
+        <div style="background:#fff;border:1px solid var(--g200);padding:8px 12px;font-size:11px;color:var(--slate);white-space:nowrap">v3 — AI: moved efficacy section</div>
+        <div style="background:#fff;border:1px solid var(--g200);padding:8px 12px;font-size:11px;color:var(--slate);white-space:nowrap">v2 — Direct: fixed typo in headline</div>
+        <div style="background:#fff;border:1px solid var(--g200);border-radius:0 7px 7px 0;padding:8px 12px;font-size:11px;color:var(--slate);white-space:nowrap">v1 — Initial generation</div>
+        <div style="margin-left:10px;background:var(--purple);color:#fff;border-radius:7px;padding:7px 12px;font-size:11px;font-weight:600;white-space:nowrap">↩ Undo</div>
+      </div>
+      <p style="font-size:12px;color:var(--slate)">Every write snapshots the previous HTML to <code style="font-size:11px;background:#fff;padding:1px 4px;border-radius:3px">asset_versions</code>. <code style="font-size:11px;background:#fff;padding:1px 4px;border-radius:3px">POST /assets/{id}/undo</code> restores the latest snapshot. Compliance re-runs automatically after every change.</p>
+    </div>
+    <div style="background:#FFF9EB;border:1px solid rgba(183,121,31,.3);border-radius:10px;padding:10px 14px;display:flex;gap:10px;align-items:flex-start">
+      <span style="font-size:14px">⚠️</span>
+      <div style="font-size:12px;color:var(--slate)"><strong style="color:var(--navy)">Asset swapping</strong> (replace one approved image with another from the library) is defined as an editing mode in the exercise spec. The brand asset library and approval records exist in the DB — the <strong>image picker UI</strong> is a next-sprint item. For now, image selection is handled during generation via the approved assets context passed to Claude.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 7 — SYSTEM ARCHITECTURE
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>System Architecture</h2><div class="sub">Next.js 14 (App Router) · FastAPI · SQLite (SQLAlchemy) · Anthropic Claude</div></div>
+  <div class="sb" style="padding:16px 44px">
+    <div style="display:grid;grid-template-columns:1fr 36px 1fr 36px 1fr;gap:0;height:100%;align-items:center">
+
+      <div style="background:#fff;border:2px solid var(--g200);border-radius:14px;overflow:hidden">
+        <div style="background:var(--navy);color:#fff;padding:10px 14px;font-weight:700;font-size:12px">⬡ Frontend — Next.js 14</div>
+        <div style="padding:10px 12px">
+          <div class="ab">Landing Page (content type cards)</div>
+          <div class="ab pu">Chat Interface + OnboardingModal</div>
+          <div class="ab pu">ClaimsApprovalCard component</div>
+          <div class="ab">Preview Panel (AssetIframe)</div>
+          <div class="ab">InlineEdit Overlay (contentEditable)</div>
+          <div class="ab">Compliance Panel (green/yellow/red)</div>
+          <div class="ab">Export Button (gated on compliance)</div>
+          <div style="margin-top:7px;font-size:10px;color:var(--slate)">State: React hooks · SSE stream reader<br>Style: Tailwind CSS · TypeScript strict</div>
+        </div>
+      </div>
+
+      <div style="text-align:center">
+        <div style="font-size:10px;color:var(--purple);font-weight:700;margin-bottom:3px">SSE</div>
+        <div style="font-size:18px;color:var(--g400)">⇌</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:3px">REST</div>
+      </div>
+
+      <div style="background:#fff;border:2px solid var(--g200);border-radius:14px;overflow:hidden">
+        <div style="background:var(--purple);color:#fff;padding:10px 14px;font-weight:700;font-size:12px">⚙ Backend — FastAPI (Python)</div>
+        <div style="padding:10px 12px">
+          <div class="ab dk">Chat Service (stream_chat)</div>
+          <div class="ab dk">Asset Generation Service</div>
+          <div class="ab pu">Compliance Pipeline (6 layers)</div>
+          <div class="ab">Auth (JWT · bcrypt)</div>
+          <div class="ab">Sessions / Messages / Assets</div>
+          <div class="ab">Uploads / Brand Assets</div>
+          <div style="margin-top:7px;font-size:10px;color:var(--slate)">Routers: auth, sessions, assets,<br>compliance, uploads, brand_collection</div>
+        </div>
+      </div>
+
+      <div style="text-align:center">
+        <div style="font-size:10px;color:#2F855A;font-weight:700;margin-bottom:3px">SDK</div>
+        <div style="font-size:18px;color:var(--g400)">→</div>
+        <div style="font-size:10px;color:var(--slate);margin-top:3px">SQL</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <div style="background:#fff;border:2px solid var(--g200);border-radius:12px;overflow:hidden">
+          <div style="background:#B7791F;color:#fff;padding:7px 12px;font-weight:700;font-size:11px">🤖 Anthropic Claude API</div>
+          <div style="padding:8px 10px">
+            <div class="ab" style="font-size:11px;margin-bottom:4px">claude-haiku-4-5 (chat + gen)</div>
+            <div class="ab" style="font-size:11px">Async streaming · messages.stream()</div>
+          </div>
+        </div>
+        <div style="background:#fff;border:2px solid var(--g200);border-radius:12px;overflow:hidden">
+          <div style="background:#2F855A;color:#fff;padding:7px 12px;font-weight:700;font-size:11px">🗄️ SQLite → PostgreSQL (prod)</div>
+          <div style="padding:8px 10px">
+            <div class="ab" style="font-size:11px;margin-bottom:4px">Users / Companies / Sessions</div>
+            <div class="ab" style="font-size:11px;margin-bottom:4px">Assets / AssetVersions / Claims</div>
+            <div class="ab" style="font-size:11px">LegalRules (238) / Evidence</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 8 — COMPLIANCE PIPELINE
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>The Compliance Pipeline</h2><div class="sub">6 layers · green / yellow / red · auto-fix loop · export gate</div></div>
+  <div class="sb" style="display:flex;gap:22px;align-items:flex-start">
+    <div style="flex:1;display:flex;flex-direction:column;gap:7px">
+
+      <div class="card" style="border-left:4px solid var(--purple);padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-weight:700;font-size:13px;color:var(--navy)">1 — Legal Rules</span>
+          <span style="font-size:10px;background:var(--purplebg);color:var(--purple);padding:2px 8px;border-radius:100px;font-weight:600">238 rules</span>
+        </div>
+        <p style="font-size:11px;color:var(--slate)">FDA 21 CFR 202, OPDP, FDCA, state false-advertising (53 jurisdictions), PhRMA/industry codes. Each rule ID maps to a dedicated check function.</p>
+      </div>
+
+      <div class="card" style="border-left:4px solid #3182CE;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-weight:700;font-size:13px;color:var(--navy)">2 — Evidence Check</span>
+          <span style="font-size:10px;background:#EBF8FF;color:#2B6CB0;padding:2px 8px;border-radius:100px;font-weight:600">citation tracing</span>
+        </div>
+        <p style="font-size:11px;color:var(--slate)">Claims embedded as <code style="font-size:10px;background:var(--g100);padding:1px 4px;border-radius:3px">&lt;!-- CLAIM_ID:xxx --&gt;</code> comments are traced to evidence records in the DB and verified for source accuracy.</p>
+      </div>
+
+      <div class="card" style="border-left:4px solid #B7791F;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-weight:700;font-size:13px;color:var(--navy)">3 — Brand Wording</span>
+          <span style="font-size:10px;background:#FFFBEB;color:#B7791F;padding:2px 8px;border-radius:100px;font-weight:600">exact text match</span>
+        </div>
+        <p style="font-size:11px;color:var(--slate)">Claim IDs verified against the approved claims library. No paraphrasing — the exact approved text must match. Red flag if a claim ID isn't found.</p>
+      </div>
+
+      <div class="card" style="border-left:4px solid #C53030;padding:11px 14px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px">
+          <span style="font-weight:700;font-size:13px;color:var(--navy)">4 — Visual Assets + ISI</span>
+          <span style="font-size:10px;background:#FFF5F5;color:#C53030;padding:2px 8px;border-radius:100px;font-weight:600">blocking</span>
+        </div>
+        <p style="font-size:11px;color:var(--slate)">All img src URLs checked against brand asset library. <code style="font-size:10px;background:var(--g100);padding:1px 4px;border-radius:3px">&lt;!-- ISI_PRESENT --&gt;</code> marker checked — red failure if ISI footer missing.</p>
+      </div>
+
+      <div class="card" style="border-left:4px solid #805AD5;padding:11px 14px">
+        <div style="margin-bottom:3px;font-weight:700;font-size:13px;color:var(--navy)">5 — Channel Compatibility</div>
+        <p style="font-size:11px;color:var(--slate)">HTML &gt;100KB (email clipping), external CSS link, &lt;script&gt; tags, missing alt text, &lt;style&gt; blocks — email client compatibility checks.</p>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--g400);padding:11px 14px">
+        <div style="margin-bottom:3px;font-weight:700;font-size:13px;color:var(--navy)">6 — Grammar &amp; Spelling</div>
+        <p style="font-size:11px;color:var(--slate)">Repeated words, double spaces, sentences starting lowercase. Regex scan over stripped text — fast, no API call.</p>
+      </div>
+    </div>
+
+    <div style="width:175px;display:flex;flex-direction:column;gap:10px">
+      <div class="stat" style="padding:14px">
+        <div style="font-size:24px;font-weight:800;color:#2F855A;line-height:1">✓</div>
+        <div style="font-weight:700;color:#2F855A;font-size:13px;margin:4px 0 2px">Green</div>
+        <div style="font-size:11px;color:var(--slate)">Check passed</div>
+      </div>
+      <div class="stat" style="padding:14px">
+        <div style="font-size:24px;font-weight:800;color:#B7791F;line-height:1">⚠</div>
+        <div style="font-weight:700;color:#B7791F;font-size:13px;margin:4px 0 2px">Yellow</div>
+        <div style="font-size:11px;color:var(--slate)">Recommendation — doesn't block export</div>
+      </div>
+      <div class="stat" style="padding:14px">
+        <div style="font-size:24px;font-weight:800;color:#C53030;line-height:1">✗</div>
+        <div style="font-weight:700;color:#C53030;font-size:13px;margin:4px 0 2px">Red</div>
+        <div style="font-size:11px;color:var(--slate)"><strong>Blocks export</strong> until resolved</div>
+      </div>
+      <div class="stat" style="background:var(--navy);color:#fff;padding:14px">
+        <div style="font-size:10px;opacity:.5;margin-bottom:4px">AUTO-FIX</div>
+        <div style="font-size:13px;font-weight:700">Retry ×2</div>
+        <div style="font-size:11px;opacity:.55;margin-top:3px">Claude attempts to fix red failures automatically before surfacing to user</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 9 — DATA MODEL
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>Data Model</h2><div class="sub">Core entities and relationships — multi-tenant, compliance-first schema</div></div>
+  <div class="sb" style="overflow-y:auto">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">
+      <div class="erd">
+        <div class="erh">Company</div>
+        <div class="erf"><span class="pk">PK</span> id (uuid)</div>
+        <div class="erf">name, drug_name</div>
+        <div class="erf">indication</div>
+        <div class="erf">manufacturer</div>
+        <div class="erf">therapy_area</div>
+      </div>
+      <div style="align-self:center;font-size:18px;color:var(--g400)">→</div>
+      <div class="erd">
+        <div class="erh">User</div>
+        <div class="erf"><span class="pk">PK</span> id</div>
+        <div class="erf"><span class="fk">FK</span> company_id</div>
+        <div class="erf">email, name</div>
+        <div class="erf">hashed_password</div>
+        <div class="erf">role</div>
+      </div>
+      <div style="align-self:center;font-size:18px;color:var(--g400)">→</div>
+      <div class="erd">
+        <div class="erh">Session</div>
+        <div class="erf"><span class="pk">PK</span> id</div>
+        <div class="erf"><span class="fk">FK</span> user_id</div>
+        <div class="erf">title</div>
+        <div class="erf">content_type</div>
+        <div class="erf">created_at</div>
+      </div>
+      <div style="width:100%;display:flex;gap:10px;flex-wrap:wrap;margin-top:4px">
+        <div class="erd">
+          <div class="erh">Message</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> session_id</div>
+          <div class="erf">role (user/assistant)</div>
+          <div class="erf">content (TEXT)</div>
+          <div class="erf">created_at</div>
+        </div>
+        <div class="erd">
+          <div class="erh">Asset</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> session_id</div>
+          <div class="erf">html_content (TEXT)</div>
+          <div class="erf">asset_type</div>
+          <div class="erf">version (int)</div>
+        </div>
+        <div class="erd">
+          <div class="erh">AssetVersion</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> asset_id</div>
+          <div class="erf">html_content</div>
+          <div class="erf">version, source</div>
+          <div class="erf">changed_by</div>
+        </div>
+        <div class="erd">
+          <div class="erh pu">Claim</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> company_id</div>
+          <div class="erf">claim_text (TEXT)</div>
+          <div class="erf">source_ref</div>
+          <div class="erf">category, active</div>
+        </div>
+        <div class="erd">
+          <div class="erh gr">LegalRule</div>
+          <div class="erf"><span class="pk">PK</span> id (e.g. FDA-21CFR202-001)</div>
+          <div class="erf">country, category</div>
+          <div class="erf">rule_text</div>
+          <div class="erf">severity</div>
+          <div class="erf">active (bool)</div>
+        </div>
+        <div class="erd">
+          <div class="erh am">EvidenceRecord</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> company_id</div>
+          <div class="erf">title, excerpt</div>
+          <div class="erf">citation</div>
+          <div class="erf">approved_claims (JSON)</div>
+        </div>
+        <div class="erd">
+          <div class="erh" style="background:#5A67D8">BrandAsset</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> company_id</div>
+          <div class="erf">url, alt_text</div>
+          <div class="erf">asset_type</div>
+          <div class="erf">approved (bool)</div>
+        </div>
+        <div class="erd">
+          <div class="erh" style="background:#319795">Upload</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> user_id</div>
+          <div class="erf">original_name</div>
+          <div class="erf">file_path, mime_type</div>
+          <div class="erf">created_at</div>
+        </div>
+        <div class="erd">
+          <div class="erh" style="background:#E53E3E">ComplianceRun*</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> asset_id</div>
+          <div class="erf">overall (pass/warn/fail)</div>
+          <div class="erf">checks (JSON array)</div>
+          <div class="erf">triggered_by, created_at</div>
+        </div>
+        <div class="erd">
+          <div class="erh" style="background:#6B46C1">UserPermission*</div>
+          <div class="erf"><span class="pk">PK</span> id</div>
+          <div class="erf"><span class="fk">FK</span> user_id</div>
+          <div class="erf">resource (asset/session)</div>
+          <div class="erf">action (read/write/approve)</div>
+          <div class="erf">granted_by</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;background:#FFF5F5;border:1px solid rgba(229,62,62,.2);border-radius:8px;padding:8px 12px;font-size:11px;color:var(--slate)">
+        <strong style="color:#C53030">* POC note:</strong> ComplianceRun results are currently computed on-demand and streamed — not persisted. In production these would be written to <code style="background:var(--g100);padding:1px 4px;border-radius:3px">compliance_runs</code> for audit trail. UserPermission is role-only (<code style="background:var(--g100);padding:1px 4px;border-radius:3px">User.role</code>) in the POC — full row-level permissions are a production concern.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 10 — SSE STREAMING
+══════════════════════════════════════════════════════ -->
+<div class="slide l-split">
+  <div class="sl">
+    <div class="lbl" style="color:rgba(255,255,255,.35);margin-bottom:10px">KEY DECISION #2</div>
+    <div class="tmd" style="color:#fff;margin-bottom:14px">Why SSE over REST polling</div>
+    <p style="color:rgba(255,255,255,.5);font-size:13px;line-height:1.7;margin-bottom:18px">Users see the AI thinking token-by-token, then the asset appears live, then compliance results stream in — all over a single HTTP connection with no polling.</p>
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:9px;background:rgba(255,255,255,.05);border-radius:8px;padding:10px">
+        <span style="color:#68d391">✓</span>
+        <div style="font-size:12px;color:rgba(255,255,255,.65)">Single HTTP/1.1 connection — no WebSocket upgrade needed</div>
+      </div>
+      <div style="display:flex;gap:9px;background:rgba(255,255,255,.05);border-radius:8px;padding:10px">
+        <span style="color:#68d391">✓</span>
+        <div style="font-size:12px;color:rgba(255,255,255,.65)">Auto-reconnect built into browser's EventSource spec</div>
+      </div>
+      <div style="display:flex;gap:9px;background:rgba(255,255,255,.05);border-radius:8px;padding:10px">
+        <span style="color:#68d391">✓</span>
+        <div style="font-size:12px;color:rgba(255,255,255,.65)">Works perfectly with FastAPI's StreamingResponse</div>
+      </div>
+      <div style="display:flex;gap:9px;background:rgba(255,255,255,.05);border-radius:8px;padding:10px">
+        <span style="color:#fc8181">→</span>
+        <div style="font-size:12px;color:rgba(255,255,255,.4)">WebSockets would be the upgrade path for real-time collab (next sprint)</div>
+      </div>
+    </div>
+  </div>
+  <div class="sr">
+    <div class="lbl" style="margin-bottom:10px">Event types flowing through the stream:</div>
+    <div class="ev t"><span class="en">text_delta</span><span class="ed">Streaming token — appended to assistant bubble in real time</span></div>
+    <div class="ev a"><span class="en">asset_created</span><span class="ed">First HTML render — PreviewPanel opens automatically</span></div>
+    <div class="ev a"><span class="en">asset_updated</span><span class="ed">Post-fix rerender — iframe content replaced live</span></div>
+    <div class="ev c"><span class="en">compliance_result</span><span class="ed">All 50+ checks complete — populates CompliancePanel</span></div>
+    <div class="ev c"><span class="en">compliance_fixing</span><span class="ed">Auto-fix in progress — inline note shown to user</span></div>
+    <div class="ev d"><span class="en">done</span><span class="ed">Stream finished — includes session title for sidebar</span></div>
+    <div class="ev e"><span class="en">error / asset_error</span><span class="ed">Graceful failure — chat message shown, no crash</span></div>
+    <div class="code" style="margin-top:14px;font-size:11px">
+<span class="ck">data:</span> {"type":"text_delta","delta":"FRUZAQLA "}<br>
+<span class="ck">data:</span> {"type":"asset_created","asset_id":"abc","html":"..."}<br>
+<span class="ck">data:</span> {"type":"compliance_result","overall":"pass",...}<br>
+<span class="ck">data:</span> {"type":"done","session_title":"HCP Email - FRESCO-2"}
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 11 — 238 FDA RULES
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>238 FDA Rules — Structured, Not Prompted</h2><div class="sub">Key decision #3: compliance as deterministic code, not LLM interpretation</div></div>
+  <div class="sb">
+    <div class="g2" style="gap:24px">
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:10px">Rule distribution across 80 regulatory categories</div>
+        <div class="rb"><span class="rl">State false-advertising (53 jurisdictions)</span><div class="rt"><div class="rf" style="width:62%"></div></div><span class="rc">53</span></div>
+        <div class="rb"><span class="rl">FDA advisory / conduct-based</span><div class="rt"><div class="rf" style="width:75%"></div></div><span class="rc">85</span></div>
+        <div class="rb"><span class="rl">21 CFR 202 (Rx drug advertising)</span><div class="rt"><div class="rf" style="width:26%"></div></div><span class="rc">23</span></div>
+        <div class="rb"><span class="rl">FDCA provisions</span><div class="rt"><div class="rf" style="width:33%"></div></div><span class="rc">29</span></div>
+        <div class="rb"><span class="rl">OPDP guidance</span><div class="rt"><div class="rf" style="width:20%"></div></div><span class="rc">18</span></div>
+        <div class="rb"><span class="rl">OIG / PhRMA / industry codes</span><div class="rt"><div class="rf" style="width:17%"></div></div><span class="rc">15</span></div>
+        <div class="rb"><span class="rl">Privacy / Digital / Other</span><div class="rt"><div class="rf" style="width:17%"></div></div><span class="rc">15</span></div>
+        <div style="display:flex;gap:8px;margin-top:14px">
+          <div class="stat" style="flex:1;padding:12px"><div class="stn" style="font-size:28px">238</div><div class="stl">curated rules</div></div>
+          <div class="stat" style="flex:1;padding:12px"><div class="stn" style="font-size:28px">80</div><div class="stl">reg. categories</div></div>
+          <div class="stat" style="flex:1;padding:12px"><div class="stn" style="font-size:28px">92</div><div class="stl">check handlers</div></div>
+        </div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:10px">Why rules-as-data beats rules-as-prompts</div>
+        <div class="card" style="margin-bottom:10px;padding:13px 15px">
+          <div style="font-weight:600;font-size:12px;color:var(--navy);margin-bottom:6px">❌ LLM evaluates rules at runtime</div>
+          <ul style="font-size:11px;color:var(--slate);padding-left:14px;line-height:1.9">
+            <li>Non-deterministic — same HTML may pass/fail differently</li>
+            <li>Expensive — every check = API call (~$0.01 each)</li>
+            <li>Not auditable — can't show which specific rule failed</li>
+            <li>Hallucination risk in rule interpretation</li>
+          </ul>
+        </div>
+        <div class="card" style="border-color:rgba(140,71,153,.3);background:var(--purplebg);padding:13px 15px">
+          <div style="font-weight:600;font-size:12px;color:var(--purple);margin-bottom:6px">✓ Rules seeded to DB, evaluated with Python functions</div>
+          <ul style="font-size:11px;color:var(--navy);padding-left:14px;line-height:1.9">
+            <li>Deterministic — same HTML always gives same result</li>
+            <li>Free — pure regex/logic, zero API calls</li>
+            <li>Auditable — rule ID + name + message surfaced per check</li>
+            <li>Updateable — activate/deactivate rules without code change</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 12 — EXPORT PACKAGE
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>Export Package</h2><div class="sub">ZIP with 4 files — blocked until compliance passes</div></div>
+  <div class="sb" style="display:flex;flex-direction:column;justify-content:center;gap:14px">
+    <div class="g2">
+      <div class="card" style="border-top:3px solid var(--navy)">
+        <div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--navy);margin-bottom:7px">📄 asset_[id].html</div>
+        <p style="font-size:12px;color:var(--slate);margin-bottom:9px">Self-contained HTML with embedded inline CSS. ISI footer included. Claim IDs embedded as HTML comments for audit tracing.</p>
+        <div class="code" style="font-size:10px;padding:8px 11px">&lt;!-- CLAIM_ID:abc123 --&gt;<br>&lt;p&gt;6.1 month PFS improvement...&lt;/p&gt;<br>&lt;!-- ISI_PRESENT --&gt;</div>
+      </div>
+      <div class="card" style="border-top:3px solid var(--purple)">
+        <div style="font-family:monospace;font-size:13px;font-weight:700;color:var(--purple);margin-bottom:7px">📋 metadata.json</div>
+        <p style="font-size:12px;color:var(--slate);margin-bottom:9px">Claims used with full source attribution and approval chain. The "what was approved, what was used, who approved it" record.</p>
+        <div class="code" style="font-size:10px;padding:8px 11px">{"claims_used":[{"claim_text":"...",<br>  "source_ref":"FRESCO-2 Trial",<br>  "approved":true}]}</div>
+      </div>
+      <div class="card" style="border-top:3px solid #B7791F">
+        <div style="font-family:monospace;font-size:13px;font-weight:700;color:#B7791F;margin-bottom:7px">🔍 compliance.json</div>
+        <p style="font-size:12px;color:var(--slate);margin-bottom:9px">Full compliance check results — all 50+ individual checks with status and message. The audit trail for regulatory review.</p>
+        <div class="code" style="font-size:10px;padding:8px 11px">{"overall":"pass","checks":[<br>  {"name":"ISI Footer","status":"green"},<br>  {"name":"Email Size","status":"green"}]}</div>
+      </div>
+      <div class="card" style="border-top:3px solid #2F855A">
+        <div style="font-family:monospace;font-size:13px;font-weight:700;color:#2F855A;margin-bottom:7px">🖼️ asset-manifest.json</div>
+        <p style="font-size:12px;color:var(--slate);margin-bottom:9px">All image sources with alt text and brand approval status. Visual asset audit trail required by exercise spec.</p>
+        <div class="code" style="font-size:10px;padding:8px 11px">{"images":[{"src":"/static/brand/logo.png",<br>  "alt":"FRUZAQLA logo",<br>  "approved":true}]}</div>
+      </div>
+    </div>
+    <div style="background:#FFF5F5;border:1px solid rgba(197,48,48,.25);border-radius:11px;padding:13px 18px;display:flex;align-items:center;gap:11px">
+      <span style="font-size:18px">🚫</span>
+      <div>
+        <span style="font-size:13px;color:#C53030;font-weight:700">Export button is disabled when any red compliance failure exists.</span>
+        <span style="font-size:12px;color:#FC8181;margin-left:8px">Shows "Resolve compliance failures before exporting" — user must fix or edit the asset first.</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 13 — ROADMAP
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>3-Sprint Roadmap</h2><div class="sub">What I'd build with 6 more weeks</div></div>
+  <div class="sb">
+    <div class="g3" style="gap:18px;height:100%">
+      <div class="card" style="border-top:4px solid var(--purple);display:flex;flex-direction:column">
+        <div class="lbl" style="color:var(--purple);margin-bottom:6px">SPRINT 1 · Weeks 1–2</div>
+        <div style="font-weight:700;font-size:15px;color:var(--navy);margin-bottom:10px">Real-Time Collaboration</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.95;padding-left:14px;flex:1">
+          <li>WebSocket presence indicators (who's viewing)</li>
+          <li>Operational transform for concurrent edits</li>
+          <li>Comment threads anchored to content sections</li>
+          <li>Multi-stage approval workflow: Author → Medical → Legal → Regulatory</li>
+        </ul>
+        <div style="margin-top:12px;background:var(--purplebg);border-radius:7px;padding:10px;font-size:11px;color:var(--purple)">
+          <strong>Why first:</strong> The #1 pain point is handing assets between stakeholders. Without this, the tool doesn't fit into real MLR workflows.
+        </div>
+      </div>
+      <div class="card" style="border-top:4px solid var(--navy);display:flex;flex-direction:column">
+        <div class="lbl" style="color:var(--navy);margin-bottom:6px">SPRINT 2 · Weeks 3–4</div>
+        <div style="font-weight:700;font-size:15px;color:var(--navy);margin-bottom:10px">Semantic Claims RAG</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.95;padding-left:14px;flex:1">
+          <li>pgvector + embeddings on claims library</li>
+          <li>Semantic retrieval replaces passing all claims as context</li>
+          <li>Support 50,000+ claims across multiple therapeutics</li>
+          <li>Graceful "no relevant claims found" fallback state</li>
+        </ul>
+        <div style="margin-top:12px;background:var(--g100);border-radius:7px;padding:10px;font-size:11px;color:var(--slate)">
+          <strong>Why second:</strong> Current approach passes the entire claims context to Claude. That breaks at scale — and semantic search surfaces better suggestions.
+        </div>
+      </div>
+      <div class="card" style="border-top:4px solid #2F855A;display:flex;flex-direction:column">
+        <div class="lbl" style="color:#2F855A;margin-bottom:6px">SPRINT 3 · Weeks 5–6</div>
+        <div style="font-weight:700;font-size:15px;color:var(--navy);margin-bottom:10px">Enterprise Integration</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.95;padding-left:14px;flex:1">
+          <li>Veeva Vault REST API for MLR submission</li>
+          <li>Salesforce Marketing Cloud export</li>
+          <li>SSO (SAML/OIDC) — auth layer already abstracted</li>
+          <li>Full GDPR-compliant audit logs with tamper-proof trail</li>
+        </ul>
+        <div style="margin-top:12px;background:#F0FFF4;border-radius:7px;padding:10px;font-size:11px;color:#2F855A">
+          <strong>Why third:</strong> Enterprise pharma runs on Veeva. The content must flow into their existing MLR process, not replace it.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 14 — SCALING
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>Scaling Architecture</h2><div class="sub">How this evolves from POC to production</div></div>
+  <div class="sb">
+    <div class="g2" style="gap:20px">
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:9px">📈 500+ Concurrent Users</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>SQLite → PostgreSQL</strong> with PgBouncer connection pooling</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Async generation queue:</strong> FastAPI workers + Celery + Redis</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Horizontal scaling:</strong> stateless API pods behind a load balancer</div>
+        </div>
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:9px">🌐 Multi-Language Content</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Locale-aware generation</strong> — target_language parameter to system prompt</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Language-specific rules</strong> — EMA/EU regulations added to legal_service.py</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Translated claims library</strong> per locale in DB</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:9px">🗂️ 50,000+ Approved Claims</div>
+        <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:16px">
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>pgvector</strong> + embedding model for semantic similarity search</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Company-scoped retrieval</strong> — multi-tenant isolation already in schema</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Cache hot claims</strong> per session in Redis (current: 5-min TTL on rules)</div>
+        </div>
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:9px">🏢 Enterprise Tools (Salesforce, Veeva)</div>
+        <div style="display:flex;flex-direction:column;gap:6px">
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>Veeva Vault REST API</strong> — submit assets into MLR review workflow</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>SFMC SOAP/REST</strong> — push approved emails directly to campaign</div>
+          <div class="card" style="padding:10px 13px;font-size:12px;color:var(--navy)"><strong>SAML/OIDC SSO</strong> — auth layer is already abstracted behind get_current_user</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 15 — DESIGN THINKING: 4 QUESTIONS THE PDF ASKS
+══════════════════════════════════════════════════════ -->
+<div class="slide l-std">
+  <div class="sh"><h2>Design Thinking: 4 Questions to Answer</h2><div class="sub">These are explicit discussion questions in the exercise brief — every one has a concrete answer</div></div>
+  <div class="sb" style="overflow-y:auto">
+    <div class="g2" style="gap:13px">
+
+      <div class="card" style="border-left:4px solid #C53030">
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:7px">🛑 Q1: How do you prevent non-compliant content?</div>
+        <div style="font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Dual strategy — UI affordances + backend validation</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.85;padding-left:13px">
+          <li><strong>Claims gate:</strong> user cannot trigger generation without explicitly approving library claims — the button literally doesn't exist until approval happens</li>
+          <li><strong>Export block:</strong> red compliance failures disable the export button — compliance isn't optional</li>
+          <li><strong>Real-time:</strong> 238-rule check fires immediately after every asset create/update, auto-fix retries ×2</li>
+          <li><strong>Manual re-check:</strong> user can re-run the full suite at any time via "Run Checks" button</li>
+        </ul>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--purple)">
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:7px">🤖 Q2: Role of AI vs. templates?</div>
+        <div style="font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">LLM for narrative + structure · constrained to approved content</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.85;padding-left:13px">
+          <li><strong>Why not templates:</strong> HCP × patient × caregiver × 4 tones × 4 goals = 48 variants. Templates don't scale; they also can't handle iterative NL refinement</li>
+          <li><strong>LLM generates:</strong> layout, narrative flow, brand voice, formatting, ISI copy</li>
+          <li><strong>LLM is constrained by:</strong> only claims from the approved library can be proposed (gate enforces this), ISI marker required, output validated against 238 rules post-generation</li>
+          <li><strong>Template-like for:</strong> channel scaffolding (email boilerplate, banner dimension constraints passed in system prompt)</li>
+        </ul>
+      </div>
+
+      <div class="card" style="border-left:4px solid var(--navy)">
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:7px">📜 Q3: Content lineage after 15 edits?</div>
+        <div style="font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Full HTML snapshot on every write · source field · user ID</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.85;padding-left:13px">
+          <li>Every write (AI or direct) snapshots previous full HTML + <code style="font-size:10px;background:var(--g100);padding:1px 3px;border-radius:3px">source</code> ("ai_edit" / "direct_edit" / "undo") + <code style="font-size:10px;background:var(--g100);padding:1px 3px;border-radius:3px">changed_by</code> user ID</li>
+          <li>Undo is O(1) — restore latest snapshot, no replay needed</li>
+          <li><strong>Granularity:</strong> per-save, not per-keystroke — right level for MLR audit workflows</li>
+          <li><strong>No branching yet</strong> — linear history. A/B variants would require a fork model (separate asset rows linked by <code style="font-size:10px;background:var(--g100);padding:1px 3px;border-radius:3px">parent_id</code>)</li>
+          <li>Production: add SHA-256 content hash per version for tamper detection</li>
+        </ul>
+      </div>
+
+      <div class="card" style="border-left:4px solid #B7791F">
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:7px">👥 Q4: Concurrent editing — now vs. future?</div>
+        <div style="font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">NOW: last-write-wins · FUTURE: optimistic locking + WebSockets</div>
+        <ul style="font-size:12px;color:var(--slate);line-height:1.85;padding-left:13px">
+          <li><strong>Right now:</strong> last write wins. Race condition is possible if two users submit edits within the same second</li>
+          <li><strong>Mitigation already in schema:</strong> <code style="font-size:10px;background:var(--g100);padding:1px 3px;border-radius:3px">version</code> int on Asset — <code style="font-size:10px;background:var(--g100);padding:1px 3px;border-radius:3px">PUT /assets/{id}</code> can reject writes where client's version ≠ DB version (optimistic locking, one-line add)</li>
+          <li><strong>Real pharma reality:</strong> reviewer ≠ editor in MLR workflows — concurrent write risk is lower than it sounds</li>
+          <li><strong>Next sprint:</strong> WebSocket presence indicators (see who's viewing), operational transform, conflict resolution UI</li>
+        </ul>
+      </div>
+
+      <div class="card" style="border-left:4px solid #2F855A;grid-column:span 2">
+        <div style="font-weight:700;font-size:13px;color:var(--navy);margin-bottom:7px">⚡ Performance Optimization Strategies</div>
+        <div style="display:flex;gap:24px">
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">POC — implemented now</div>
+            <ul style="font-size:12px;color:var(--slate);line-height:1.85;padding-left:13px">
+              <li><strong>5-min TTL cache</strong> on legal rules — avoids re-querying 238 rules on every compliance check</li>
+              <li><strong>Async/await</strong> throughout FastAPI — generation and compliance don't block the event loop</li>
+              <li><strong>45s timeout</strong> on asset generation — prevents hung requests; user sees graceful error + retry</li>
+              <li><strong>Sequential DB checks</strong> (necessary: SQLAlchemy sessions aren't thread-safe with SQLite)</li>
+            </ul>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:700;color:var(--slate);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px">Production path</div>
+            <ul style="font-size:12px;color:var(--slate);line-height:1.85;padding-left:13px">
+              <li>SQLite → <strong>PostgreSQL + PgBouncer</strong> enables parallel compliance checks with thread-safe sessions</li>
+              <li>In-memory cache → <strong>Redis</strong> (shared across workers, TTL managed centrally)</li>
+              <li>Asset HTML in DB TEXT column → <strong>S3/blob</strong> for large slide decks (&gt;100KB)</li>
+              <li><strong>CDN</strong> for brand assets (currently served from FastAPI /static)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     SLIDE 16 — Q&A PREP
+══════════════════════════════════════════════════════ -->
+<div class="slide l-dark">
+  <div class="orb" style="width:450px;height:450px;background:radial-gradient(circle,rgba(140,71,153,.15) 0%,transparent 70%);top:-150px;right:-150px"></div>
+  <div style="position:relative;max-width:900px;width:100%;text-align:left">
+    <div class="lbl" style="color:rgba(255,255,255,.35);margin-bottom:14px;text-align:center">Q&amp;A PREP — 30–40 MINUTES</div>
+    <div class="g3" style="gap:14px">
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--purpleg);margin-bottom:9px">UX DECISIONS</div>
+        <ul style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.9;padding-left:14px">
+          <li>Claims gate over auto-generation: human accountability</li>
+          <li>Onboarding modal: reduces ambiguous first messages</li>
+          <li>SSE streaming: perceived performance &gt; batch response</li>
+          <li>Red blocks export: compliance must be resolved, not ignored</li>
+        </ul>
+      </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--purpleg);margin-bottom:9px">EDGE CASES HANDLED</div>
+        <ul style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.9;padding-left:14px">
+          <li>No approved claims → yellow "no claims found" advisory</li>
+          <li>Red compliance after edits → export blocked, auto-fix retries first</li>
+          <li>API timeout → asset_error event, message saved, retry possible</li>
+          <li>Deprecated claim → red brand wording check by claim ID</li>
+        </ul>
+      </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--purpleg);margin-bottom:9px">WHAT I'D CHANGE</div>
+        <ul style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.9;padding-left:14px">
+          <li>PostgreSQL + pgvector from day one</li>
+          <li>Stronger model (Sonnet 4.6) for asset generation quality</li>
+          <li>WebSockets for real-time collab, not SSE</li>
+          <li>Proper test suite: unit + e2e with Playwright</li>
+        </ul>
+      </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--purpleg);margin-bottom:9px">COMPLIANCE AUDIT TRAIL</div>
+        <ul style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.9;padding-left:14px">
+          <li>CLAIM_ID comments in HTML tie asset to approved claims</li>
+          <li>AssetVersions table is an immutable change log</li>
+          <li>Export metadata.json has full approval chain</li>
+          <li>Next: tamper-proof hash on each asset_version row</li>
+        </ul>
+      </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--purpleg);margin-bottom:9px">CONTENT LINEAGE</div>
+        <ul style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.9;padding-left:14px">
+          <li>asset_versions: full HTML snapshot on every write</li>
+          <li>source field: "ai_edit" vs "direct_edit" vs "undo"</li>
+          <li>changed_by: user ID on every version</li>
+          <li>No branching yet — single linear history per asset</li>
+        </ul>
+      </div>
+      <div style="background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:16px">
+        <div style="font-size:12px;font-weight:700;color:var(--purpleg);margin-bottom:9px">3–5 METRICS TO TRACK</div>
+        <ul style="font-size:12px;color:rgba(255,255,255,.6);line-height:1.9;padding-left:14px">
+          <li>Time from first message → export (efficiency)</li>
+          <li>Compliance pass rate on first generation</li>
+          <li>Revision cycles per asset (target: &lt;3 from 5–10)</li>
+          <li>Claim approval rate (which claims get rejected)</li>
+          <li>Export-to-launch rate (did they actually send it)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<div id="nav">
+  <button id="bp" onclick="go(-1)" disabled>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M9 11L5 7l4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+  <span id="ctr" class="ctr">1 / 16</span>
+  <button id="bn" onclick="go(1)">
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M5 3l4 4-4 4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </button>
+</div>
+
+<script>
+var cur=0,slides=document.querySelectorAll('.slide'),N=slides.length;
+function go(d){
+  slides[cur].classList.remove('on');
+  cur=Math.max(0,Math.min(N-1,cur+d));
+  slides[cur].classList.add('on');
+  document.getElementById('ctr').textContent=(cur+1)+' / '+N;
+  document.getElementById('bp').disabled=cur===0;
+  document.getElementById('bn').disabled=cur===N-1;
+  document.getElementById('prog').style.width=((cur+1)/N*100)+'%';
+}
+document.addEventListener('keydown',function(e){
+  if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(1);}
+  if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(-1);}
+  if(e.key==='Home'){e.preventDefault();go(-cur);}
+  if(e.key==='End'){e.preventDefault();go(N-1-cur);}
+});
+document.getElementById('prog').style.width=(1/N*100)+'%';
+document.getElementById('bn').disabled=N<=1;
+</script>
+</body>
+</html>
