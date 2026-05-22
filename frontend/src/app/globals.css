@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --color-primary: #8C4799;
+  --color-blue: #59CBE8;
+  --color-navy: #002855;
+  --color-lime: #97D700;
+  --color-yellow: #FFC72C;
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  font-family: 'Rubik', sans-serif;
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes pharma-thinking {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+.thinking-shimmer {
+  background: linear-gradient(
+    90deg,
+    #8C4799 0%,
+    #59CBE8 50%,
+    #8C4799 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: pharma-thinking 3.5s ease-in-out infinite;
+}
